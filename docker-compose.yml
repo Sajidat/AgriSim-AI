@@ -1,4 +1,22 @@
 services:
+  db:
+    image: postgres:16-alpine
+    container_name: agrisim_db
+    environment:
+      POSTGRES_DB: agrisim
+      POSTGRES_USER: agrisim
+      POSTGRES_PASSWORD: agrisim
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    restart: always
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U agrisim -d agrisim"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
   backend:
     build: ./backend
     container_name: agrisim_backend
@@ -6,6 +24,11 @@ services:
       - "8000:8000"
     env_file:
       - .env
+    environment:
+      - DATABASE_URL=postgresql://agrisim:agrisim@db:5432/agrisim
+    depends_on:
+      db:
+        condition: service_healthy
     restart: always
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000').read()"]
@@ -24,3 +47,6 @@ services:
       backend:
         condition: service_healthy
     restart: always
+
+volumes:
+  postgres_data:

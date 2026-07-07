@@ -25,9 +25,9 @@ logger = logging.getLogger(__name__)
 # ── Configuration centralisée ─────────────────────────────────
 @dataclass(frozen=True)
 class AppConfig:
-    api_url: str = os.getenv("API_URL", "http://127.0.0.1:8000")
+    api_url: str = os.getenv("API_URL", "http://backend:8000")
     api_timeout: int = 10
-    history_ttl: int = 30          # secondes
+    history_ttl: int = 5          # secondes
     request_retries: int = 2
     request_backoff: float = 0.4   # secondes entre retries
 
@@ -822,11 +822,10 @@ def _api_post(path: str, **kwargs) -> requests.Response:
 # Fonctions de données
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-@st.cache_data(ttl=CONFIG.history_ttl, show_spinner=False)
 def load_history() -> pd.DataFrame:
     """Charge l'historique des prédictions depuis l'API."""
     try:
-        r = _api_get("/history")
+        r = _api_get("/history?limit=500")
         data = r.json()
         if not data:
             return pd.DataFrame()
@@ -1016,7 +1015,7 @@ def sidebar_location() -> dict:
 
 
 def footer(
-    author: str = "Lallene &amp; Associés (Expertise SSI &amp; Systèmes)",
+    author: str = "LES EXPERTS EN SYSTÈMES D'INFORMATION ET SÉCURITÉ ",
     links: list[tuple[str, str]] | None = None,
 ) -> None:
     """
@@ -1206,6 +1205,36 @@ NAV_MODULES: list[tuple[str, str, str, str, str, str, str]] = [
         "Performances ML",
         "Comparaison R², MAE, RMSE et violin plots par culture.",
     ),
+    (
+        "pages/6_Data_ML_Pipeline.py",
+        "🗄️", "Data & ML", "#E8EEF8", "#1F4E79",
+        "Data & ML Pipeline",
+        "Base de données, préparation des données, features ML et flux de prédiction.",
+    ),
+    (
+    "pages/7_Backend_API.py",
+    "⚙️", "Backend", "#EFEAF8", "#5B3E90",
+    "Backend & API",
+    "FastAPI, endpoints, PostgreSQL, modèle ML et healthcheck Docker.",
+    ),
+    (
+    "pages/8_Architecture_Deployment.py",
+    "🏗️", "Architecture", "#EAF0F6", "#2F4F6F",
+    "Architecture & Déploiement",
+    "Vue globale de l’architecture, Docker, services, variables et déploiement cloud.",
+    ),
+    (
+    "pages/9_Frontend_UI.py",
+    "🎨", "Frontend", "#F3E8FF", "#6B3FA0",
+    "Frontend & UX",
+    "Interface utilisateur Streamlit, navigation, interactions et communication avec l’API.",
+    ),
+    (
+    "pages/10_Formulaire_Complet.py",
+    "📝", "Saisie", "#EAF7F1", "#1F7A55",
+    "Formulaire complet",
+    "Saisir manuellement tous les champs météo, sol, pratiques agricoles et lancer une prédiction.",
+    ),
 ]
 
 
@@ -1270,5 +1299,5 @@ def render_modules(modules: list[tuple] | None = None, n_cols: int = 3) -> None:
               <p class="mod-title">{title}</p>
               <p class="mod-desc">{desc}</p>
             </div>""", unsafe_allow_html=True)
-            if st.button("Ouvrir →", key=f"mod_{i}", use_container_width=True):
+            if st.button("Ouvrir →", key=f"mod_{i}", width="stretch"):
                 st.switch_page(page)

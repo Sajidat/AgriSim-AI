@@ -8,7 +8,7 @@ joblib
 sqlalchemy
 psycopg2-binary
 gdown
-gdown
-joblib
 numpy
 pandas
+matplotlib
+

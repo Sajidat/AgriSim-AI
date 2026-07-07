@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import os
 from functools import lru_cache
 
@@ -11,6 +13,7 @@ MODEL_DIR = "model"
 MODEL_PATH = os.path.join(MODEL_DIR, "model.pkl")
 METADATA_PATH = os.path.join(MODEL_DIR, "model_metadata.pkl")
 
+# Désactivation des variables d'environnement Drive pour forcer le chargement local
 MODEL_ID = os.getenv("MODEL_ID")
 METADATA_ID = os.getenv("METADATA_ID")
 
@@ -19,49 +22,58 @@ MIN_METADATA_SIZE = 100
 
 
 def download_file_if_missing(file_id: str | None, output_path: str, label: str, min_size: int):
-    if os.path.exists(output_path) and os.path.getsize(output_path) >= min_size:
-        print(f"{label} déjà présent ✅")
-        return
-
-    if not file_id:
-        raise RuntimeError(f"{label} manquant. Ajoute la variable d'environnement correspondante.")
-
-    os.makedirs(os.path.dirname(output_path), exist_ok=True)
-
-    url = f"https://drive.google.com/uc?id={file_id}"
-
-    print(f"Téléchargement {label} depuis Google Drive...")
-    gdown.download(url, output_path, quiet=False)
-
-    if not os.path.exists(output_path):
-        raise RuntimeError(f"Échec du téléchargement : {label}")
-
-    if os.path.getsize(output_path) < min_size:
-        raise RuntimeError(f"{label} corrompu ou incomplet.")
+    """
+    Télécharge un fichier depuis Google Drive si nécessaire.
+    (Désactivé pour un fonctionnement entièrement local)
+    """
+    # --- CODE POUR GOOGLE DRIVE MIS EN COMMENTAIRE ---
+    # if os.path.exists(output_path) and os.path.getsize(output_path) >= min_size:
+    #     print(f"{label} déjà présent ✅")
+    #     return
+    #
+    # if not file_id:
+    #     raise RuntimeError(f"{label} manquant. Ajoute la variable d'environnement correspondante.")
+    #
+    # os.makedirs(os.path.dirname(output_path), exist_ok=True)
+    #
+    # url = f"https://drive.google.com/uc?id={file_id}"
+    #
+    # print(f"Téléchargement {label} depuis Google Drive...")
+    # gdown.download(url, output_path, quiet=False)
+    #
+    # if not os.path.exists(output_path):
+    #     raise RuntimeError(f"Échec du téléchargement : {label}")
+    #
+    # if os.path.getsize(output_path) < min_size:
+    #     raise RuntimeError(f"{label} corrompu ou incomplet.")
+    pass
 
 
 @lru_cache(maxsize=1)
 def load_artifacts():
-    print("Chargement des artefacts ML...")
+    print("Chargement des artefacts ML en local...")
 
-    download_file_if_missing(
-        MODEL_ID,
-        MODEL_PATH,
-        "MODEL_ID",
-        MIN_MODEL_SIZE
-    )
+    # Assure-toi que les dossiers et fichiers existent en local
+    os.makedirs(MODEL_DIR, exist_ok=True)
 
-    download_file_if_missing(
-        METADATA_ID,
-        METADATA_PATH,
-        "METADATA_ID",
-        MIN_METADATA_SIZE
-    )
+    # Vérification simple en local (sans passer par les fonctions du Drive)
+    if not os.path.exists(MODEL_PATH):
+        raise FileNotFoundError(
+            f"Le fichier modèle est introuvable au chemin : {MODEL_PATH}. "
+            "Veuillez y déposer votre fichier model.pkl"
+        )
+    
+    if not os.path.exists(METADATA_PATH):
+        raise FileNotFoundError(
+            f"Le fichier de métadonnées est introuvable au chemin : {METADATA_PATH}. "
+            "Veuillez y déposer votre fichier model_metadata.pkl"
+        )
 
+    # Chargement direct depuis le stockage local
     model = joblib.load(MODEL_PATH)
     metadata = joblib.load(METADATA_PATH)
 
-    print("Modèle chargé avec succès ✅")
+    print("Modèle chargé avec succès depuis le stockage local ✅")
 
     return model, metadata
 

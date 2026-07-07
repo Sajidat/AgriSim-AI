@@ -35,7 +35,6 @@ cultures = load_cultures()
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 def _rendement_level(rend: float) -> tuple[str, str, str]:
-    """Retourne (level, titre, body) selon le rendement prédit."""
     if rend < 3:
         return ("danger",
                 "Rendement faible — Action requise",
@@ -68,11 +67,26 @@ def _card(title: str, rows: list[tuple[str, str]]) -> str:
     )
 
 
-def _fetch_recommendation(payload: dict) -> dict | None:
+# FIX : mise en cache de la recommandation pour éviter un appel
+# réseau à chaque rerun Streamlit (déclenché par chaque interaction sidebar).
+# ttl=300 = le résultat est réutilisé pendant 5 minutes pour les mêmes paramètres.
+@st.cache_data(ttl=300, show_spinner=False)
+def _fetch_recommendation(
+    culture: str, zone: str,
+    latitude: float, longitude: float,
+    date_debut: str, date_fin: str,
+    engrais: int, irrigation: str,
+) -> dict | None:
     try:
         r = requests.post(
             f"{CONFIG.api_url}/cultures/recommend",
-            json=payload, timeout=5,
+            json={
+                "culture": culture, "zone": zone,
+                "latitude": latitude, "longitude": longitude,
+                "date_debut": date_debut, "date_fin": date_fin,
+                "engrais": engrais, "irrigation": irrigation,
+            },
+            timeout=5,
         )
         if r.status_code == 200:
             return r.json()
@@ -85,7 +99,8 @@ def _run_prediction(payload: dict) -> dict | None:
     try:
         r = requests.post(
             f"{CONFIG.api_url}/predict",
-            json=payload, timeout=25,
+            json=payload,
+            timeout=60,
         )
         if r.status_code == 200:
             return r.json()
@@ -101,16 +116,20 @@ def _run_prediction(payload: dict) -> dict | None:
 with st.sidebar:
     sidebar_logo()
 
-    st.page_link("app.py",                     label="🏠  Accueil")
-    st.page_link("pages/1_Dashboard.py",       label="📊  Dashboard")
-    st.page_link("pages/2_Prediction.py",      label="🌱  Prédiction")
-    st.page_link("pages/3_Historique.py",      label="📋  Historique")
-    st.page_link("pages/4_IA_Explicable.py",   label="🔍  IA Explicable")
-    st.page_link("pages/5_Performances_ML.py", label="⚙️  Performances ML")
+    st.page_link("app.py",                      label="🏠  Accueil")
+    st.page_link("pages/1_Dashboard.py",        label="📊  Dashboard")
+    st.page_link("pages/2_Prediction.py",       label="🌱  Prédiction")
+    st.page_link("pages/3_Historique.py",       label="📋  Historique")
+    st.page_link("pages/4_IA_Explicable.py",    label="🔍  IA Explicable")
+    st.page_link("pages/5_Performances_ML.py",  label="⚙️  Performances ML")
+    st.page_link("pages/6_Data_ML_Pipeline.py", label="🗄️  Data & ML Pipeline")
+    st.page_link("pages/7_Backend_API.py",      label="⚙️  Backend & API")
+    st.page_link("pages/8_Architecture_Deployment.py", label="🏗️  Architecture")
+    st.page_link("pages/9_Frontend_UI.py",      label="🎨  Frontend & UX")
+    st.page_link("pages/10_Formulaire_Complet.py", label="📝  Formulaire complet")
 
     st.markdown('<div class="sidebar-section"></div>', unsafe_allow_html=True)
 
-    # — Localisation (helper centralisé) —
     loc = sidebar_location()
     if not loc:
         st.stop()
@@ -122,20 +141,17 @@ with st.sidebar:
 
     st.markdown('<div class="sidebar-section"></div>', unsafe_allow_html=True)
 
-    # — Culture —
     st.markdown("**Culture**")
     culture = st.selectbox("", cultures, label_visibility="collapsed")
 
     st.markdown('<div class="sidebar-section"></div>', unsafe_allow_html=True)
 
-    # — Pratiques —
     st.markdown("**Pratiques agricoles**")
     engrais    = st.slider("Engrais (kg/ha)", 0, 200, 70, step=5)
     irrigation = st.radio("Irrigation", ["oui", "non"], horizontal=True)
 
     st.markdown('<div class="sidebar-section"></div>', unsafe_allow_html=True)
 
-    # — Période —
     st.markdown("**Période de culture**")
     dc1, dc2 = st.columns(2)
     with dc1:
@@ -165,14 +181,12 @@ with st.sidebar:
 # Corps principal
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-# — Recommandation IA —
-reco_payload = {
-    "culture": culture, "zone": zone,
-    "latitude": latitude, "longitude": longitude,
-    "date_debut": str(date_debut), "date_fin": str(date_fin),
-    "engrais": engrais, "irrigation": irrigation,
-}
-reco = _fetch_recommendation(reco_payload)
+# FIX : appel avec arguments explicites (requis par st.cache_data)
+reco = _fetch_recommendation(
+    culture, zone, latitude, longitude,
+    str(date_debut), str(date_fin),
+    engrais, irrigation,
+)
 if reco:
     cultures_sugg = ", ".join(reco.get("cultures", []))
     climat        = reco.get("climat", "—")
@@ -185,14 +199,12 @@ if reco:
         unsafe_allow_html=True,
     )
 
-# — Titre de section —
 st.markdown(
     '<div class="section-header">Simulation de rendement</div>'
     '<p class="section-sub">Renseignez les paramètres dans la barre latérale puis lancez la prédiction.</p>',
     unsafe_allow_html=True,
 )
 
-# — Carte + Paramètres —
 col_map, col_info = st.columns([1.4, 1], gap="large")
 
 with col_map:
@@ -227,8 +239,6 @@ with col_info:
         ]),
         unsafe_allow_html=True,
     )
-
-    # Aperçu engrais via barre de progression
     st.markdown(
         f'<p style="font-size:11px;letter-spacing:1.5px;text-transform:uppercase;'
         f'font-weight:700;color:var(--caption);margin:16px 0 5px;">Dose engrais</p>'
@@ -247,7 +257,6 @@ if predict_button:
         "date_debut": str(date_debut), "date_fin": str(date_fin),
     }
 
-    # Barre de progression animée
     prog = st.progress(0, text="Récupération des données météo…")
     for i in range(40):
         time.sleep(0.012)
@@ -263,12 +272,10 @@ if predict_button:
     if r is None:
         st.stop()
 
-    # — Cache invalidation —
     st.cache_data.clear()
 
     st.markdown('<hr class="fancy-divider">', unsafe_allow_html=True)
 
-    # ── Métriques clés ─────────────────────────────────────────
     st.markdown('<div class="section-header">Résumé décisionnel</div>', unsafe_allow_html=True)
 
     m1, m2, m3, m4 = st.columns(4)
@@ -277,7 +284,6 @@ if predict_button:
     m3.metric("Humidité moy.",     f"{r['humidite']} %")
     m4.metric("Pluviométrie",      f"{r['pluviometrie']} mm")
 
-    # ── Source météo + export ──────────────────────────────────
     src_meteo = r.get("source_meteo", "Non précisée")
     st.markdown(
         status_html("success", "Source météo", src_meteo),
@@ -293,7 +299,6 @@ if predict_button:
         use_container_width=True,
     )
 
-    # ── Détails environnement & pratiques ─────────────────────
     d1, d2 = st.columns(2, gap="large")
     with d1:
         st.markdown(
@@ -320,7 +325,6 @@ if predict_button:
             ]),
             unsafe_allow_html=True,
         )
-        # Barre engrais dans les résultats
         st.markdown(
             f'<p style="font-size:11px;letter-spacing:1.5px;text-transform:uppercase;'
             f'font-weight:700;color:var(--caption);margin:4px 0 5px;">Dose engrais</p>'
@@ -328,7 +332,6 @@ if predict_button:
             unsafe_allow_html=True,
         )
 
-    # ── Analyse narrative ──────────────────────────────────────
     st.markdown(f"""
     <div class="interpret-box">
         <div class="interpret-box-label">Analyse du modèle</div>
@@ -338,7 +341,6 @@ if predict_button:
         et les caractéristiques du sol local (pH {r['ph']}, {r['type_sol']}).</p>
     </div>""", unsafe_allow_html=True)
 
-    # ── Alerte rendement ───────────────────────────────────────
     level, titre, body = _rendement_level(r["rendement_predit"])
     st.markdown(status_html(level, titre, body), unsafe_allow_html=True)
 

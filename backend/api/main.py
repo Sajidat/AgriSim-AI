@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from fastapi import FastAPI, HTTPException
 from api.schemas import PredictionInput, PredictionResponse, CitySearchInput
 from services.weather_service import (
@@ -9,6 +11,7 @@ from services.weather_service import (
 from ml.model_loader import predict_yield, load_artifacts
 from api.database import init_db, SessionLocal, Prediction
 import pandas as pd
+import os
 
 # ─────────────────────────────────────────────
 # INIT API
@@ -51,10 +54,11 @@ def home():
     return {"message": "AgriSim AI API OK", "docs": "/docs"}
 
 
-# 🔍 villes
 @app.post("/cities/search")
 def cities_search(data: CitySearchInput):
+    """Recherche de villes."""
     return search_cities(data.query)
+
 
 @app.get("/health")
 def health():
@@ -64,9 +68,10 @@ def health():
         "docs": "/docs"
     }
 
-# 🌱 cultures dynamiques
+
 @app.get("/cultures")
 def get_cultures():
+    """Récupération de la liste des cultures."""
     try:
         df = pd.read_csv("data/cultures_agricoles.csv")
         cultures = sorted(df["Culture"].dropna().unique().tolist())
@@ -80,9 +85,10 @@ def get_cultures():
             ]
         }
 
-# 🌍 recommandation
+
 @app.post("/cultures/recommend")
 def recommend(data: PredictionInput):
+    """Recommandation de cultures en fonction de la météo."""
     meteo = get_weather_auto(
         data.latitude,
         data.longitude,
@@ -104,10 +110,9 @@ def recommend(data: PredictionInput):
     return {"climat": climat, "cultures": reco}
 
 
-# 🤖 prédiction
 @app.post("/predict", response_model=PredictionResponse)
 def predict(input_data: PredictionInput):
-
+    """Prédiction automatisée."""
     db = None
 
     try:
@@ -120,7 +125,6 @@ def predict(input_data: PredictionInput):
 
         sol = get_soil_data(input_data.latitude, input_data.longitude)
 
-        # features ML
         model_data = {
             "region": input_data.zone,
             "culture": input_data.culture,
@@ -178,6 +182,8 @@ def predict(input_data: PredictionInput):
         )
 
     except Exception as e:
+        if db:
+            db.rollback()
         raise HTTPException(status_code=500, detail=str(e))
 
     finally:
@@ -185,10 +191,95 @@ def predict(input_data: PredictionInput):
             db.close()
 
 
-# 📜 historique
+@app.post("/predict/manual")
+def predict_manual(input_data: dict):
+    """Prédiction manuelle."""
+    db = None
+
+    try:
+        model_data = {
+            "region": input_data["zone"],
+            "culture": input_data["culture"],
+            "temperature": input_data["temperature"],
+            "temperature_max": input_data["temperature_max"],
+            "humidite": input_data["humidite"],
+            "pluviometrie": input_data["pluviometrie"],
+            "et0": input_data["et0"],
+            "stress_hydrique": input_data["stress_hydrique"],
+            "ndvi": input_data["ndvi"],
+            "type_sol": input_data["type_sol"],
+            "ph": input_data["ph"],
+            "engrais": input_data["engrais"],
+            "irrigation": input_data["irrigation"],
+            "ndvi_source": input_data["ndvi_source"],
+        }
+
+        rendement = predict_yield(model_data)
+        rendement = clamp_yield(input_data["culture"], rendement)
+        rendement = round(float(rendement), 2)
+
+        db = SessionLocal()
+
+        prediction = Prediction(
+            culture=input_data["culture"],
+            zone=input_data["zone"],
+            latitude=input_data["latitude"],
+            longitude=input_data["longitude"],
+            temperature=input_data["temperature"],
+            humidite=input_data["humidite"],
+            pluviometrie=input_data["pluviometrie"],
+            type_sol=input_data["type_sol"],
+            ph=input_data["ph"],
+            engrais=input_data["engrais"],
+            irrigation=input_data["irrigation"],
+            rendement_predit=rendement,
+        )
+
+        db.add(prediction)
+        db.commit()
+
+        return {
+            "culture": input_data["culture"],
+            "zone": input_data["zone"],
+            "latitude": input_data["latitude"],
+            "longitude": input_data["longitude"],
+            "temperature": input_data["temperature"],
+            "temperature_max": input_data["temperature_max"],
+            "humidite": input_data["humidite"],
+            "pluviometrie": input_data["pluviometrie"],
+            "et0": input_data["et0"],
+            "stress_hydrique": input_data["stress_hydrique"],
+            "ndvi": input_data["ndvi"],
+            "type_sol": input_data["type_sol"],
+            "ph": input_data["ph"],
+            "engrais": input_data["engrais"],
+            "irrigation": input_data["irrigation"],
+            "ndvi_source": input_data["ndvi_source"],
+            "source_meteo": "saisie manuelle",
+            "rendement_predit": rendement,
+        }
+
+    except Exception as e:
+        if db:
+            db.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+
+    finally:
+        if db:
+            db.close()
+
+
 @app.get("/history")
-def history():
+def history(limit: int = 200):
     db = SessionLocal()
-    data = db.query(Prediction).order_by(Prediction.id.desc()).limit(20).all()
+
+    data = (
+        db.query(Prediction)
+        .order_by(Prediction.id.desc())
+        .limit(limit)
+        .all()
+    )
+
     db.close()
+
     return data

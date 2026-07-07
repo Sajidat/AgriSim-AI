@@ -1,5 +1,7 @@
+import pandas as pd
 import streamlit as st
 import plotly.graph_objects as go
+
 import sys, os
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 from utils import CSS, PAL, CHART_COLORS, CHART_LAYOUT, sidebar_logo, load_history, footer
@@ -15,6 +17,13 @@ with st.sidebar:
     st.page_link("pages/3_Historique.py",      label="📋  Historique")
     st.page_link("pages/4_IA_Explicable.py",   label="🔍  IA Explicable")
     st.page_link("pages/5_Performances_ML.py", label="⚙️  Performances ML")
+    st.page_link("pages/6_Data_ML_Pipeline.py", label="🗄️  Data & ML Pipeline")
+    st.page_link("pages/7_Backend_API.py", label="⚙️  Backend & API")
+    st.page_link("pages/8_Architecture_Deployment.py", label="🏗️  Architecture")
+    st.page_link("pages/9_Frontend_UI.py", label="🎨  Frontend & UX")
+    st.page_link("pages/10_Formulaire_Complet.py", label="📝  Formulaire complet")
+
+
     st.markdown('<div class="sidebar-section"></div>', unsafe_allow_html=True)
     if st.button("🔄  Actualiser", use_container_width=True):
         st.cache_data.clear()
@@ -23,7 +32,11 @@ with st.sidebar:
 st.markdown('<div class="section-header">Historique des prédictions</div>', unsafe_allow_html=True)
 st.markdown('<p class="section-sub">Consultez, filtrez et exportez l\'ensemble des prédictions enregistrées dans la base de données.</p>', unsafe_allow_html=True)
 
+if "refresh_history" not in st.session_state:
+    st.session_state.refresh_history = 0
+
 df = load_history()
+st.caption(f"Dernière mise à jour : {pd.Timestamp.now().strftime('%d/%m/%Y %H:%M:%S')}")
 
 if df.empty:
     st.info("Aucune prédiction enregistrée pour le moment.")

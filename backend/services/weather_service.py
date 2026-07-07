@@ -206,11 +206,31 @@ def get_climate_zone(temperature: float, pluviometrie: float):
 # ============================================================
 
 def get_soil_data(latitude: float, longitude: float):
-    return {
-        "type_sol": "limoneux",
-        "ph": 6.8
-    }
+    lat = float(latitude)
+    lon = float(longitude)
 
+    if lat > 45:
+        if lon < 0:
+            return {"type_sol": "argileux", "ph": 6.5}
+        return {"type_sol": "limoneux", "ph": 6.8}
+
+    elif 30 <= lat <= 45:
+        if lon < 10:
+            return {"type_sol": "argilo-calcaire", "ph": 7.2}
+        return {"type_sol": "sableux", "ph": 6.6}
+
+    elif 10 <= lat < 30:
+        if lon < 0:
+            return {"type_sol": "sableux", "ph": 6.3}
+        return {"type_sol": "limono-sableux", "ph": 6.5}
+
+    elif -10 <= lat < 10:
+        if lon < 0:
+            return {"type_sol": "argileux", "ph": 5.9}
+        return {"type_sol": "ferrallitique", "ph": 5.7}
+
+    else:
+        return {"type_sol": "latéritique", "ph": 5.6}
 # ============================================================
 # 🧪 TEST
 # ============================================================

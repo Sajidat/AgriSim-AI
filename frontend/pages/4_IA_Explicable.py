@@ -17,6 +17,12 @@ with st.sidebar:
     st.page_link("pages/3_Historique.py",      label="📋  Historique")
     st.page_link("pages/4_IA_Explicable.py",   label="🔍  IA Explicable")
     st.page_link("pages/5_Performances_ML.py", label="⚙️  Performances ML")
+    st.page_link("pages/6_Data_ML_Pipeline.py", label="🗄️  Data & ML Pipeline")
+    st.page_link("pages/7_Backend_API.py", label="⚙️  Backend & API")
+    st.page_link("pages/8_Architecture_Deployment.py", label="🏗️  Architecture")
+    st.page_link("pages/9_Frontend_UI.py", label="🎨  Frontend & UX")
+    st.page_link("pages/10_Formulaire_Complet.py", label="📝  Formulaire complet")
+
 
 st.markdown('<div class="section-header">IA Explicable — Importance des features</div>', unsafe_allow_html=True)
 st.markdown('<p class="section-sub">Visualisation SHAP : pourquoi le modèle prédit ce rendement ? Les métriques sont calculées sur vos données réelles.</p>', unsafe_allow_html=True)
