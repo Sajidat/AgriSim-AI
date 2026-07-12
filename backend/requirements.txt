@@ -3,7 +3,7 @@ uvicorn
 pydantic
 requests
 pandas
-scikit-learn
+scikit-learn==1.8.0
 joblib
 sqlalchemy
 psycopg2-binary
